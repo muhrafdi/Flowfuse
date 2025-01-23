@@ -1,0 +1,68 @@
+name: Deploy flowfuse from Local Chart to EKS
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'CI/CD prod'
+        required: true
+        default: 'latest'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up AWS credentials from GitHub Secrets
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Install kubectl
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/v1.24.0/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+
+      # Install Helm
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      # Set up kubeconfig for EKS
+      - name: Set up kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name smu-production-kubernetes
+
+      # Retrieve parameters from AWS SSM (if necessary)
+      - name: Retrieve DB parameters from AWS SSM
+        id: ssm-params
+        run: |
+          export DB_HOST=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_host" --with-decryption --query "Parameter.Value" --output text)
+          export DB_PORT=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_port" --with-decryption --query "Parameter.Value" --output text)
+          export DB_USER=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_user" --with-decryption --query "Parameter.Value" --output text)
+          export DB_PASSWORD=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_password" --with-decryption --query "Parameter.Value" --output text)
+          export DB_NAME=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_name" --with-decryption --query "Parameter.Value" --output text)
+
+      # Install Helm chart from the local folder (helm/flowfuse)
+      - name: Install flowfuse Helm chart from local folder
+        run: |
+          helm install flowfuse ./helm/flowfuse \
+            --set postgresql.host=$DB_HOST \
+            --set postgresql.port=$DB_PORT \
+            --set postgresql.auth.username=$DB_USER \
+            --set postgresql.auth.password=$DB_PASSWORD \
+            --set postgresql.auth.database=$DB_NAME
+
+      # Optionally, check the status of the Helm release
+      - name: Check Helm release status
+        run: |
+          helm status flowfuse

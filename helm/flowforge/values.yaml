@@ -1,0 +1,178 @@
+forge:
+  replicas: 1
+  localPostgresql: false
+  https: true
+  projectNamespace: flowforge
+  projectSelector:
+    role: projects
+  projectDeploymentTolerations: []
+  projectNetworkPolicy:
+    enabled: false
+  projectIngressAnnotations: {}
+  managementSelector:
+    role: management
+  telemetry:
+    enabled: true
+    backend:
+      prometheus:
+        enabled: false
+  labels: {}
+  podLabels: {}
+  broker:
+    enabled: true
+    image: iegomez/mosquitto-go-auth
+    teamBroker:
+      enabled: false
+    createMetricsUser: false
+    podSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    livenessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 5
+    readinessProbe:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 15
+      successThreshold: 1
+      failureThreshold: 3
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+    labels: {}
+    podLabels: {}
+    tolerations: []
+    ingress.annotations: {}
+
+  persistentStorage:
+    enabled: true
+    size: 5Gi
+    storageClass: flowfuse
+
+  fileStore:
+    enabled: true
+    type: localfs
+    quota: 104857600
+    options:
+      root: var/root
+    context:
+      type: sequelize
+      quota: 1048576
+      options:
+        type: postgres
+    podSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+    labels: {}
+    podLabels: {}
+    tolerations: []
+    telemetry:
+      backend:
+        prometheus:
+          enabled: false
+
+  support:
+    enabled: false
+
+  rate_limits:
+    enabled: false
+    global: true
+    max: 1000
+    timeWindow: 60000
+
+  domain: flowfuse.wingscorp.com
+  entryPoint: forge.flowfuse.wingscorp.com
+  environment: {}
+  image: ""
+  registry: ""
+
+  contentSecurityPolicy:
+    enabled: false
+    reportOnly: false
+
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  livenessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  tolerations: []
+
+  priorityClassName: ""
+
+  logPassthrough: false
+  customHostname:
+    enabled: false
+
+  assistant: {}
+
+postgresql:
+  host: <database-host>
+  port: <database-port>
+  auth:
+    username: <database-username>
+    password: <database-password>
+    database: <database-name>
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  hosts:
+    - host: forge.flowfuse.wingscorp.com
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: tls-ca-flowfuse
+      hosts:
+        - devflowfuse.wingscorp.com
+
+
+editors: 
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: editors
+
+broker:
+  storageClassName: ''
+  listenersServiceTemplate: {}
+  dashboardServiceTemplate: {}
+  existingSecret: ''
+  monitoring:
+    emqxExporter:
+      enabled: false
