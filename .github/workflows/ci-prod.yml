@@ -9,8 +9,11 @@ on:
         default: 'latest'
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  build:
+    runs-on:
+      - codebuild-github-prod-${{ github.run_id }}-${{ github.run_attempt }}
+      - image:ubuntu-6.0
+      - instance-size:small
 
     steps:
       # Checkout the code from the repository
@@ -24,6 +27,9 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run a simple command
+        run: echo "The self-hosted runner is working!"
 
       # Install kubectl
       - name: Install kubectl
