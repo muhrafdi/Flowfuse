@@ -157,7 +157,7 @@ ingress:
         - path: /
           pathType: ImplementationSpecific
   tls:
-    - secretName: tls-ca-flowfuse
+    - secretName: tls-rancher-ingress
       hosts:
         - devflowfuse.wingscorp.com
 
