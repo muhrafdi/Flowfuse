@@ -61,7 +61,7 @@ jobs:
       # Install Helm chart from the local folder (helm/flowfuse)
       - name: Install flowfuse Helm chart from local folder
         run: |
-          helm install flowfuse ./helm/flowfuse \
+          helm upgrade --install flowfuse ./helm/flowfuse \
             --set postgresql.host=$DB_HOST \
             --set postgresql.port=$DB_PORT \
             --set postgresql.auth.username=$DB_USER \
