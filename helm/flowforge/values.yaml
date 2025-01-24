@@ -141,10 +141,10 @@ forge:
 
 postgresql:
   host: xxx
-  port: xxx
+  port: 5432
   auth:
     username: xxx
-    password: xxx
+    password: "xxx"
     database: xxx
 
 ingress:
