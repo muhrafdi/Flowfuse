@@ -1,0 +1,31 @@
+forge:
+  entryPoint: forge-eks.flowfuse.wingscorp.com
+  apiUrl: "https://forge-eks.flowfuse.wingscorp.com/api"
+  domain: flowfuse.wingscorp.com
+  https: true
+  tls:
+    secretName: tls-rancher-ingress
+    enabled: true
+  localPostgresql: false  # Disabled internal database
+  projectSelector:
+  managementSelector:
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+    hosts:
+      - host: forge-eks.flowfuse.wingscorp.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: tls-rancher-ingress
+        hosts:
+          - forge-eks.flowfuse.wingscorp.com
+postgresql:
+  host: 172.20.5.33
+  port: 5432
+  auth:
+    username: postgres
+    password: password
+    database: dev_flowfuse

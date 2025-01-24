@@ -9,11 +9,8 @@ on:
         default: 'latest'
 
 jobs:
-  build:
-    runs-on:
-      - codebuild-github-prod-${{ github.run_id }}-${{ github.run_attempt }}
-      - image:ubuntu-6.0
-      - instance-size:small
+  override-config-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
       # Checkout the code from the repository
@@ -43,32 +40,54 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+      - name: Retrieve PostgreSQL Secrets from AWS SSM
+        id: get-ssm-params
+        run: |
+          PG_NAME=$(aws ssm get-parameter --name "/smu/prod/db/ff-context/pg/name" --with-decryption --query "Parameter.Value" --output text)
+          PG_HOST=$(aws ssm get-parameter --name "/smu/prod/db/ff-context/pg/host" --with-decryption --query "Parameter.Value" --output text)
+          PG_PASS=$(aws ssm get-parameter --name "/smu/prod/db/ff-context/pg/pass" --with-decryption --query "Parameter.Value" --output text)
+          PG_PORT=$(aws ssm get-parameter --name "/smu/prod/db/ff-context/pg/port" --with-decryption --query "Parameter.Value" --output text)
+          PG_USER=$(aws ssm get-parameter --name "/smu/prod/db/ff-context/pg/user" --with-decryption --query "Parameter.Value" --output text)
+          
+          echo "::add-mask::$PG_PASS"  # Mask the password in logs
+          
+          echo "pg_name=$PG_NAME" >> $GITHUB_OUTPUT
+          echo "pg_host=$PG_HOST" >> $GITHUB_OUTPUT
+          echo "pg_pass=$PG_PASS" >> $GITHUB_OUTPUT
+          echo "pg_port=$PG_PORT" >> $GITHUB_OUTPUT
+          echo "pg_user=$PG_USER" >> $GITHUB_OUTPUT
+
+      - name: Prepare Helm Values Override
+        run: |
+          cat > customization.yml << EOF
+          postgresql:
+            host: ${{ steps.get-ssm-params.outputs.pg_host }}
+            port: ${{ steps.get-ssm-params.outputs.pg_port }}
+            auth:
+              username: ${{ steps.get-ssm-params.outputs.pg_user }}
+              password: ${{ steps.get-ssm-params.outputs.pg_pass }}
+              database: ${{ steps.get-ssm-params.outputs.pg_name }}
+          EOF
+          cat override-values.yaml  # Optional: for debugging, remove in production
+
       # Set up kubeconfig for EKS
       - name: Set up kubeconfig for EKS
         run: |
           aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name smu-production-kubernetes
 
-      # Retrieve parameters from AWS SSM (if necessary)
-      - name: Retrieve DB parameters from AWS SSM
-        id: ssm-params
+      # test access kubernetes
+      - name: check ns
         run: |
-          export DB_HOST=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_host" --with-decryption --query "Parameter.Value" --output text)
-          export DB_PORT=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_port" --with-decryption --query "Parameter.Value" --output text)
-          export DB_USER=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_user" --with-decryption --query "Parameter.Value" --output text)
-          export DB_PASSWORD=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_password" --with-decryption --query "Parameter.Value" --output text)
-          export DB_NAME=$(aws ssm get-parameter --name "arn:aws:ssm:ap-southeast-3:200748807270:parameter/wm/smu-wm-tv-monitoring-spkb-web-uat/sqa/db_name" --with-decryption --query "Parameter.Value" --output text)
+          kubectl get ns
 
-      # Install Helm chart from the local folder (helm/flowfuse)
-      - name: Install flowfuse Helm chart from local folder
-        run: |
-          helm upgrade --install flowfuse ./helm/flowfuse \
-            --set postgresql.host=$DB_HOST \
-            --set postgresql.port=$DB_PORT \
-            --set postgresql.auth.username=$DB_USER \
-            --set postgresql.auth.password=$DB_PASSWORD \
-            --set postgresql.auth.database=$DB_NAME
+      # Step 5: Install/Upgrade Flowfuse using Helm
+      #- name: Helm upgrade/installation
+      #  run: |
+      #    helm repo add flowfuse https://flowfuse.github.io/flowforge
+      #    helm repo update
+      #    helm upgrade --atomic --install --timeout 10m flowfuse flowfuse/flowforge -f customization.yml -n flowfuse
 
       # Optionally, check the status of the Helm release
-      - name: Check Helm release status
-        run: |
-          helm status flowfuse
+      #- name: Check Helm release status
+      #  run: |
+      #    helm status flowfuse -n flowfuse
