@@ -140,12 +140,12 @@ forge:
   assistant: {}
 
 postgresql:
-  host: <database-host>
-  port: <database-port>
+  host: xxx
+  port: xxx
   auth:
-    username: <database-username>
-    password: <database-password>
-    database: <database-name>
+    username: xxx
+    password: xxx
+    database: xxx
 
 ingress:
   enabled: true
